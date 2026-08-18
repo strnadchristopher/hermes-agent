@@ -110,7 +110,8 @@ import {
   shouldDeferLocalEnumeration,
   shouldRetrySshInventory,
   updateEligibility,
-  upsertConnection
+  upsertConnection,
+  visibleApiProfileNames
 } from './connection-registry'
 import { describeCrashReason, installCrashForensics } from './crash-forensics'
 import { adoptServedDashboardToken } from './dashboard-token'
@@ -12615,15 +12616,11 @@ async function enumerateRegistryAgentSources(registry = readDesktopConnectionsRe
           const descriptor: any = await ensureRegistryBackend(connection.id, null)
           const body: any = await getJsonForBackend(descriptor, '/api/profiles', { timeoutMs: 8_000 })
 
-          const profiles = Array.isArray(body?.profiles)
-            ? body.profiles.map(p => String(p?.name || '').trim()).filter(Boolean)
-            : []
-
-          // The root HERMES_HOME is an agent too; enumerations that omit it
-          // (older backends list only named profiles) still get a default row.
-          if (!profiles.includes('default')) {
-            profiles.unshift('default')
-          }
+          // The source's own hidden flag is authoritative here. In
+          // particular, a remote-primary window may have started a local
+          // child solely to reach its named worker; that must not resurrect a
+          // deliberately hidden local `default` as a second agent.
+          const profiles = visibleApiProfileNames(body?.profiles)
 
           raw = { connection, profiles }
         }
